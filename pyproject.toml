@@ -7,7 +7,7 @@ packages = [ 'bentoudev.dataclass' ]
 
 [project]
 name = "bentoudev.dataclass"
-version = "0.3.1"
+version = "0.1.0"
 description = "Yaml to dataclass loader"
 readme = "README.md"
 authors = [{ name = "BentouDev" }]
@@ -47,4 +47,4 @@ push = false
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [ 'current_version = "{version}"', 'version = "{version}"' ]
-"zetsubou/_version.py" = [ '__version__ = "{version}"' ]
+"bentoudev/dataclass/_version.py" = [ '__version__ = "{version}"' ]
