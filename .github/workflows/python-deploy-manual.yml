@@ -23,7 +23,7 @@ on:
 
 jobs:
   test:
-    uses: ./.github/workflows/python-build.yml
+    uses: bentoudev/python-build-workflow/.github/workflows/python-build.yml@main
     with:
       python-versions: >-
         ["3.x"]
