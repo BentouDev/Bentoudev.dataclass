@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [ 'bentoudev.dataclass' ]
+
+[project]
+name = "bentoudev.dataclass"
+version = "0.3.1"
+description = "Yaml to dataclass loader"
+readme = "README.md"
+authors = [{ name = "BentouDev" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["yaml", "dataclass"]
+dependencies = [
+    "fs",
+    "platformdirs",
+    "typing-inspect",
+    "typing_extensions",
+    "PyYAML",
+    'tomli; python_version < "3.11"',
+]
+requires-python = ">=3.7"
+
+[project.optional-dependencies]
+dev = ["pyinstaller==5.0", "bumpver", "pip-tools", "pytest", "build", "twine"]
+
+[project.urls]
+Homepage = "https://github.com/BentouDev/zetsubou.dataclass"
+
+# [project.scripts]
+# zetsubou = "zetsubou.__main__"
+
+[tool.bumpver]
+current_version = "0.1.0"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "[bot] Bump version {old_version} -> {new_version}"
+commit = false
+tag = false
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [ 'current_version = "{version}"', 'version = "{version}"' ]
+"zetsubou/_version.py" = [ '__version__ = "{version}"' ]
