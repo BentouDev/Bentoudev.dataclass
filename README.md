@@ -11,6 +11,11 @@ Supports folowing types:
 - Optional, List, Dict (from ``typing``)
 - references to not yet known types (see example), including self-referencing
 
+## Install
+```sh
+pip install bentoudev.dataclass
+```
+
 ## Documentation
 Work in progress, for now, check out examples below or browse the source code.
 
