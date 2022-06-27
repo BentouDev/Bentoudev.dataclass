@@ -6,10 +6,14 @@ Yaml to dataclass loader.
 
 Supports folowing types:
 - classes marked as dataclass (from ``dataclasses``)
-- int, str, float, list, dict
+- int, str, float, list
 - Enum (from ``enum``)
-- Optional, List, Dict (from ``typing``)
+- Optional, List (from ``typing``)
 - references to not yet known types (see example), including self-referencing
+
+Support work in progress:
+- dict
+- Dict, Union (from ``typing``)
 
 ## Install
 ```sh
@@ -100,7 +104,7 @@ yaml_content = (
 my_obj: MyDataclass = yaml_loader.load_yaml_dataclass(MyDataclass, 'pretty file name', yaml_content)
 ```
 ### Remember lines
-Additional information about source from which obj/field was loaded can be enabled by using @track_source attribute, or setting always_track_source parameter to True (disabled by default, but recomended). Such information is then used to print prettier errors in ``DataclassLoadError``.
+Additional information about source from which obj/field was loaded can be enabled by using ``@track_source`` attribute, or setting ``always_track_source`` parameter to True (disabled by default, but recomended). Such information is then used to print prettier errors in ``DataclassLoadError``.
 
 ```python
 class EKind(Enum):
@@ -124,12 +128,14 @@ kind: THIRD
 ^ (line: 1)
 ```
 
-If you desire to retrieve this information and print error yourself, access it's ``source`` field.
+If you desire to retrieve this information and print error yourself, access it's ``source`` field in error, or use injected methods ``get_root_source`` or ``get_field_source``.
 ```python
 try:
     obj =  yaml_loader.load_yaml_dataclass(SomeClass, 'broken_file.yml', broken_yaml_content, always_track_source=True)
+    field_src = obj.get_field_source('my_field_name')
+    print(f"Value location line '{field_src.line_number}', column '{field_src.column_number}'")
 except DataclassLoadError as err:
     print(f"Error location line '{err.source.line_number}', column '{err.source.column_number}'")
 ```
 
-Additionaly, you can control how many lines are loaded for code snippet and in which format line numbers are presented via ``error_code_snippet_lines`` and ``error_format``.
+Additionaly, you can control how many lines are loaded for code snippet and in which format line numbers are presented via ``error_code_snippet_lines`` and ``error_format`` (Pretty or MSVC compatible).
