@@ -7,7 +7,6 @@ from yaml import MarkedYAMLError
 import typing_inspect
 import enum
 
-import yaml
 from yaml.composer import Composer
 from yaml.constructor import Constructor
 from yaml.nodes import ScalarNode
