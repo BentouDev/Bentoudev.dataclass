@@ -2,14 +2,14 @@
 
 [![CI (on push)](https://github.com/BentouDev/Bentoudev.dataclass/actions/workflows/python-ci.yml/badge.svg)](https://github.com/BentouDev/Bentoudev.dataclass/actions/workflows/python-ci.yml) [![PyPI version](https://badge.fury.io/py/bentoudev.dataclass.svg)](https://badge.fury.io/py/bentoudev.dataclass)
 
-Yaml to dataclass loader.
+Yaml to dataclass loader. Validates objects based on type information.
 
 Supports folowing types:
 - classes marked as dataclass (from ``dataclasses``)
 - int, str, float, list
 - Enum (from ``enum``)
 - Optional, List (from ``typing``)
-- references to not yet known types (see example), including self-referencing
+- forward references to not yet known types (see example), including self-referencing
 
 Support work in progress:
 - dict
@@ -65,8 +65,8 @@ obj = load_yaml_dataclass(Container, 'pretty file name', 'value: ThisIsMyName')
 
 assert obj.value.name == 'ThisIsMyName'
 ```
-### External types
-Sometimes you might want to load dataclass that references foreign types, from other modules, in form of a string. In order to support such types, loader must be supplied with list of them.
+### Forward references to external types
+Sometimes you might want to load dataclass that forward references foreign types, from other modules, in form of a string. In order to support such types, loader must be supplied with list of them.
 ```python
 
 @dataclass
