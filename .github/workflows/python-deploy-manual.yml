@@ -37,6 +37,7 @@ jobs:
         ["3.x"]
 
   bump_version:
+    if: ${{ github.event.inputs.version_upgrade != 'none' }}
     needs: test
     runs-on: ubuntu-latest
     outputs:
@@ -56,8 +57,7 @@ jobs:
       run: |
         git config --global user.email ${{ github.event.inputs.commit_user_email }}
         git config --global user.name ${{ github.event.inputs.commit_user_name }}
-    - name: Bump version & commit    
-      if: ${{ github.event.inputs.version_upgrade != 'none' }}
+    - name: Bump version & commit
       run: python -m bumpver update ${{ github.event.inputs.version_upgrade }} --commit --push --tag-commit
     - name: Get latest commit SHA
       id: sha
@@ -69,6 +69,7 @@ jobs:
           echo ${{ steps.sha.outputs.SHA }}
 
   deploy:
+    if: ${{ always() }}
     needs: bump_version
     runs-on: ubuntu-latest
     steps:

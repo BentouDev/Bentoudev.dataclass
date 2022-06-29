@@ -76,8 +76,14 @@ class Source:
         )
 
     def format_pretty(self, label:str, message:str):
+        first_line = ''
+        if len(label) != 0:
+            first_line = f'{label}: {message}\n'
+        else:
+            first_line = f'{message}\n'
+
         return (
-            f'{label}: {message}\n'
+            f'{first_line}'
             f'in "{self.file_name}", line {self.line_number}, column {self.column_number}:\n'
             f'{self.buffer}\n'
             f'{"":>{self.column_number}}{f"^ (line: {self.line_number})"}'
@@ -182,10 +188,10 @@ def track_source(clazz):
     def format_message(self, label:str, msg:str, error_format:EErrorFormat):
         return format_source(self.get_root_source(), label, msg, error_format)
 
-    def format_field_message(self, field_name: str):
+    def format_field_message(self, field_name: str, label:str, msg:str, error_format:EErrorFormat):
         src = self.get_field_source(field_name)
         if src is not None:
-            return format_source(src)
+            return format_source(src, label, msg, error_format)
         return ""
 
     setattr(clazz, _SOURCE_TRACKED_ATTR, None)
