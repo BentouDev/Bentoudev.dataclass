@@ -179,6 +179,13 @@ def is_obj_list(obj):
     return is_clazz_list(obj)
 
 
+def is_obj_tracked(obj):
+    if is_obj_dict(type(obj)):
+        return '__yaml_location__' in obj and '__yaml_field_location__' in obj
+    return (hasattr(obj, '__yaml_location__') and hasattr(obj, '__yaml_field_location__'))
+
+
+
 class YamlSourceTracker(SourceTracker):
 
     @staticmethod
@@ -244,6 +251,10 @@ def YamlToScalar(clazz: type, yaml_obj: Any, context: DataclassVisitorContext):
 
 def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, field_name:str='', field_loc:Source=None):
     with FieldLocationScope(field_name, field_loc, context):
+        if is_obj_tracked(yaml_obj):
+            st = YamlSourceTracker.from_yaml_obj(yaml_obj, context, [])
+            context.clazz_stack.append(st)
+
         if typing_inspect.is_forward_ref(clazz):
             for t in context.ext_types:
                 if get_type_name(t) == clazz.__forward_arg__:
@@ -310,9 +321,10 @@ def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, f
 
             if not is_obj_dict(type(yaml_obj)):
                 loc_src = context.get_location_source()
-                raise DataclassLoadError(f"Got Dict '{type(yaml_obj)}', when expecting 'Dict [{key_type.__name__},{value_type.__name__}]'", loc_src, context.error_format)
+                raise DataclassLoadError(f"Got '{type(yaml_obj)}', when expecting 'Dict [{key_type.__name__},{value_type.__name__}]'", loc_src, context.error_format)
 
             entries = get_dict_items(yaml_obj)
+
             result = { YamlToScalar(key_type, entry[0], context) : YamlToObject(value_type, entry[1], context) for entry in entries }
             return result
 
