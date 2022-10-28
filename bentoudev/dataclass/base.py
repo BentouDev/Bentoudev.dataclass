@@ -109,6 +109,10 @@ class DataclassLoadError(Exception):
         return self.source.format('error', self.msg, self.format)
 
 
+class UnhandledType(Exception):
+    pass
+
+
 class SourceTracker:
     __source_map__ = dict()
     __root_src__: Source

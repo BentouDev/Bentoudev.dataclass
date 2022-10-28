@@ -1,4 +1,4 @@
-from typing import List, TypeVar, Any, Optional
+from typing import List, TypeVar, Any, Optional, Union, Dict
 import dataclasses
 import inspect
 
@@ -13,7 +13,7 @@ from yaml.nodes import ScalarNode
 from yaml.resolver import BaseResolver
 from yaml.loader import SafeLoader
 
-from bentoudev.dataclass.base import DataclassLoadError, EErrorFormat, Source, SourceTracker, get_inline_load_type, get_type_name, is_inline_loaded, is_source_tracked, is_clazz_dict, is_clazz_list, track_source
+from bentoudev.dataclass.base import DataclassLoadError, UnhandledType, EErrorFormat, Source, SourceTracker, get_inline_load_type, get_type_name, is_inline_loaded, is_source_tracked, is_clazz_dict, is_clazz_list, track_source
 
 
 class DataclassVisitorContext:
@@ -157,10 +157,14 @@ def default_type_loaders():
     }
 
 
+def is_field_hidden(field_name:str):
+    return field_name.startswith('__')
+
+
 def get_dict_items(data):
     def is_normal_field(tuple):
         name, _ = tuple
-        if name.startswith('__'):
+        if type(name) is str and is_field_hidden(name):
             return False
         return True
 
@@ -235,7 +239,7 @@ def YamlToScalar(clazz: type, yaml_obj: Any, context: DataclassVisitorContext):
     elif clazz in context.type_cache:
         return context.type_cache[clazz](yaml_obj, context)
 
-    raise ValueError(f"Unhandled type '{clazz}', unable to load value '{yaml_obj}'")
+    raise UnhandledType(f"Unhandled type '{clazz}', unable to load value '{yaml_obj}'")
 
 
 def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, field_name:str='', field_loc:Source=None):
@@ -268,6 +272,49 @@ def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, f
         elif typing_inspect.is_optional_type(clazz):
             subtype = clazz.__args__[0]
             return YamlToObject(subtype, yaml_obj, context)
+
+        elif typing_inspect.get_origin(clazz) is Union:
+            preffered_type = type(yaml_obj)
+            union_types = typing_inspect.get_args(clazz)
+
+            # Check the type of the value, it may fit just fine
+            if preffered_type in union_types:
+                try:
+                    result = YamlToObject(preffered_type, yaml_obj, context)
+                except UnhandledType as err:
+                    pass
+                else:
+                    return result
+
+            if is_obj_dict(preffered_type):
+                failed_attempts = []
+                for possible_dict_t in union_types:
+                    try:
+                        result = YamlToObject(possible_dict_t, yaml_obj, context)
+                    except Exception as err:
+                        failed_attempts.append(str(err))
+                    else:
+                        return result
+
+                attempt_msg = '\n'.join(failed_attempts)
+                allowed_types = ', '.join([t.__name__ for t in union_types] )
+                loc_src = context.get_location_source()
+                raise DataclassLoadError(f"Got '{yaml_obj}' when expecting 'Union [{allowed_types}]'. Failed to substitute all Union types:\n{attempt_msg}", loc_src, context.error_format)
+
+            allowed_types = ', '.join([t.__name__ for t in union_types] )
+            loc_src = context.get_location_source()
+            raise DataclassLoadError(f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'", loc_src, context.error_format)
+
+        elif is_obj_dict(clazz):
+            key_type, value_type = typing_inspect.get_args(clazz)
+
+            if not is_obj_dict(type(yaml_obj)):
+                loc_src = context.get_location_source()
+                raise DataclassLoadError(f"Got Dict '{type(yaml_obj)}', when expecting 'Dict [{key_type.__name__},{value_type.__name__}]'", loc_src, context.error_format)
+
+            entries = get_dict_items(yaml_obj)
+            result = { YamlToScalar(key_type, entry[0], context) : YamlToObject(value_type, entry[1], context) for entry in entries }
+            return result
 
         return YamlToScalar(clazz, yaml_obj, context)
 

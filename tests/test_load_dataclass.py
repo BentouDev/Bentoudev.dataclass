@@ -1,7 +1,7 @@
 import pytest
 
 from dataclasses import dataclass, fields
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Union, Dict
 from enum import Enum
 import bentoudev.dataclass.yaml_loader as yaml
 import bentoudev.dataclass.base as base
@@ -106,6 +106,32 @@ class claz_tracked_source:
     str_arr: array_of_str
 
 
+@dataclass
+class clazz_person:
+    name: str
+    age: int
+
+
+@dataclass
+class clazz_union_str_int:
+    data: Union[str, int]
+
+
+@dataclass
+class clazz_union_str_obj:
+    data: Union[str, clazz_person]
+
+
+@dataclass
+class clazz_dict_str_int:
+    data: Dict[str, int]
+
+
+@dataclass
+class clazz_dict_int_obj:
+    data: Dict[int, clazz_person]
+
+
 def get_dataclass_field(clazz:type, name:str):
     for f in fields(clazz):
         if f.name == name:
@@ -160,6 +186,15 @@ def load_dataclass_simple(clazz:type, data):
 
         (inline_int_only, InputData(666, clazz_inline_loader_int(f_int=666))),
         (inline_str_only, InputData('othertext', clazz_inline_loader_str(f_string='othertext'))),
+
+        (clazz_union_str_int, InputData('text', 'text')),
+        (clazz_union_str_int, InputData(666, 666)),\
+        (clazz_union_str_obj, InputData('foo', 'foo')),
+        (clazz_union_str_obj, InputData('\n   name: foo\n   age: 666', clazz_person(name='foo', age=666))),
+
+        (clazz_dict_str_int, InputData('\n   key: 666', {'key':666})),
+        (clazz_dict_str_int, InputData('\n   foo: 777', {'foo':777})),
+        (clazz_dict_int_obj, InputData('\n   1:\n      name: foo\n      age: 666', {1:clazz_person(name='foo', age=666)})),
     ]
 )
 def test_load_simple(clazz:type, data_input):
@@ -206,6 +241,18 @@ def test_load_simple(clazz:type, data_input):
 
         (inline_int_only, 'othertext'),
         (inline_str_only, '\n- foo'),
+
+        (clazz_union_str_int, False),
+        (clazz_union_str_int, []),
+        (clazz_union_str_int, {}),
+        (clazz_union_str_int, '\n- foo'),
+        (clazz_union_str_int, '\n   foo: bar'),
+
+        (clazz_dict_int_obj, False),
+        (clazz_dict_int_obj, []),
+        (clazz_dict_int_obj, '\n- foo'),
+        (clazz_dict_int_obj, '\n   foo: bar'),
+        (clazz_dict_int_obj, '\n   0:\t   name: foo'),
     ]
 )
 def test_load_fail_simple(clazz:type, data_input):

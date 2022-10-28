@@ -9,11 +9,8 @@ Supports folowing types:
 - int, str, float, list
 - Enum (from ``enum``)
 - Optional, List (from ``typing``)
-- forward references to not yet known types (see example), including self-referencing
-
-Support work in progress:
-- dict
 - Dict, Union (from ``typing``)
+- forward references to not yet known types (see example), including self-referencing
 
 ## Install
 ```sh
@@ -90,6 +87,7 @@ class MyDataclass:
     my_string: str
     self_nested: Optional['MyDataclass']
     list_of_sth: List[str]
+    user_data: Dict[str, str]
 
 yaml_content = (
     'my_string: foo\n'
@@ -98,7 +96,9 @@ yaml_content = (
     '  list_of_sth: inline_value\n'
     'list_of_sth:\n'
     '- first\n'
-    '- second'
+    '- second\n'
+    'user_data:\n'
+    '  anything: goes'
 )
 
 my_obj: MyDataclass = yaml_loader.load_yaml_dataclass(MyDataclass, 'pretty file name', yaml_content)
