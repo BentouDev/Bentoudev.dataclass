@@ -8,8 +8,7 @@ Supports folowing types:
 - classes marked as dataclass (from ``dataclasses``)
 - int, str, float, list
 - Enum (from ``enum``)
-- Optional, List (from ``typing``)
-- Dict, Union (from ``typing``)
+- Optional, List, Dict, Union (from ``typing``)
 - forward references to not yet known types (see example), including self-referencing
 
 ## Install
