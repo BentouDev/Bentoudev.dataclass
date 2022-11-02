@@ -29,7 +29,7 @@ dependencies = [
 requires-python = ">=3.7"
 
 [project.optional-dependencies]
-dev = ["pyinstaller==5.0", "bumpver", "pip-tools", "pytest", "build", "twine"]
+dev = ["pyinstaller>=5.0", "bumpver", "pip-tools", "pytest", "build", "twine"]
 
 [project.urls]
 Homepage = "https://github.com/BentouDev/zetsubou.dataclass"
