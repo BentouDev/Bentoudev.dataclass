@@ -242,7 +242,6 @@ def test_load_simple(clazz:type, data_input):
         (inline_int_only, 'othertext'),
         (inline_str_only, '\n- foo'),
 
-        (clazz_union_str_int, False),
         (clazz_union_str_int, []),
         (clazz_union_str_int, {}),
         (clazz_union_str_int, '\n- foo'),
