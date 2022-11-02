@@ -7,7 +7,7 @@ packages = [ 'bentoudev.dataclass' ]
 
 [project]
 name = "bentoudev.dataclass"
-version = "1.0.1"
+version = "1.0.2"
 description = "Yaml to dataclass loader"
 readme = "README.md"
 authors = [{ name = "BentouDev" }]
@@ -38,7 +38,7 @@ Homepage = "https://github.com/BentouDev/zetsubou.dataclass"
 # zetsubou = "zetsubou.__main__"
 
 [tool.bumpver]
-current_version = "1.0.1"
+current_version = "1.0.2"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "[bot] Bump version {old_version} -> {new_version}"
 commit = false
