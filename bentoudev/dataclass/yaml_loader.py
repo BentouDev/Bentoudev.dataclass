@@ -251,84 +251,81 @@ def YamlToScalar(clazz: type, yaml_obj: Any, context: DataclassVisitorContext):
 
 def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, field_name:str='', field_loc:Source=None):
     with FieldLocationScope(field_name, field_loc, context):
-        if is_obj_tracked(yaml_obj):
-            st = YamlSourceTracker.from_yaml_obj(yaml_obj, context, [])
-            context.clazz_stack.append(st)
+        with FieldLocationScope(field_name, YamlSourceTracker.from_yaml_obj(yaml_obj, context, []) if is_obj_tracked(yaml_obj) else None, context):
+            if typing_inspect.is_forward_ref(clazz):
+                for t in context.ext_types:
+                    if get_type_name(t) == clazz.__forward_arg__:
+                        return YamlToObject(t, yaml_obj, context)
 
-        if typing_inspect.is_forward_ref(clazz):
-            for t in context.ext_types:
-                if get_type_name(t) == clazz.__forward_arg__:
-                    return YamlToObject(t, yaml_obj, context)
+            if dataclasses.is_dataclass(clazz):
+                return DictToDataclass(clazz, yaml_obj, context)
 
-        if dataclasses.is_dataclass(clazz):
-            return DictToDataclass(clazz, yaml_obj, context)
+            elif is_obj_list(clazz):
+                subtype = clazz.__args__[0]
 
-        elif is_obj_list(clazz):
-            subtype = clazz.__args__[0]
+                # Loading multi element list
+                if is_obj_list(type(yaml_obj)):
+                    num_items = len(yaml_obj)
+                    if num_items == 0:
+                        return []
 
-            # Loading multi element list
-            if is_obj_list(type(yaml_obj)):
-                num_items = len(yaml_obj)
-                if num_items == 0:
-                    return []
-
-                result = []
-                for x in range(num_items):
-                    result.append(YamlToObject(subtype, yaml_obj[x], context))
-                return result
-            # Loading inline, single element
-            else:
-                return [ YamlToObject(subtype, yaml_obj, context) ]
-
-        elif typing_inspect.is_optional_type(clazz):
-            subtype = clazz.__args__[0]
-            return YamlToObject(subtype, yaml_obj, context)
-
-        elif typing_inspect.get_origin(clazz) is Union:
-            preffered_type = type(yaml_obj)
-            union_types = typing_inspect.get_args(clazz)
-
-            # Check the type of the value, it may fit just fine
-            if preffered_type in union_types:
-                try:
-                    result = YamlToObject(preffered_type, yaml_obj, context)
-                except UnhandledType as err:
-                    pass
-                else:
+                    result = []
+                    for x in range(num_items):
+                        result.append(YamlToObject(subtype, yaml_obj[x], context))
                     return result
+                # Loading inline, single element
+                else:
+                    return [ YamlToObject(subtype, yaml_obj, context) ]
 
-            if is_obj_dict(preffered_type):
-                failed_attempts = []
-                for possible_dict_t in union_types:
+            elif typing_inspect.is_optional_type(clazz):
+                subtype = clazz.__args__[0]
+                return YamlToObject(subtype, yaml_obj, context)
+
+            elif typing_inspect.get_origin(clazz) is Union:
+                preffered_type = type(yaml_obj)
+                union_types = typing_inspect.get_args(clazz)
+
+                # Check the type of the value, it may fit just fine
+                if preffered_type in union_types:
                     try:
-                        result = YamlToObject(possible_dict_t, yaml_obj, context)
-                    except Exception as err:
-                        failed_attempts.append(str(err))
+                        result = YamlToObject(preffered_type, yaml_obj, context)
+                    except UnhandledType as err:
+                        pass
                     else:
                         return result
 
-                attempt_msg = '\n'.join(failed_attempts)
+                else:
+                    failed_attempts = []
+                    for possible_dict_t in union_types:
+                        try:
+                            result = YamlToObject(possible_dict_t, yaml_obj, context)
+                        except Exception as err:
+                            failed_attempts.append(str(err))
+                        else:
+                            return result
+
+                    attempt_msg = '\n'.join(failed_attempts)
+                    allowed_types = ', '.join([t.__name__ for t in union_types] )
+                    loc_src = context.get_location_source()
+                    raise DataclassLoadError(f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'. Failed to substitute all Union types:\n{attempt_msg}", loc_src, context.error_format)
+
                 allowed_types = ', '.join([t.__name__ for t in union_types] )
                 loc_src = context.get_location_source()
-                raise DataclassLoadError(f"Got '{yaml_obj}' when expecting 'Union [{allowed_types}]'. Failed to substitute all Union types:\n{attempt_msg}", loc_src, context.error_format)
+                raise DataclassLoadError(f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'", loc_src, context.error_format)
 
-            allowed_types = ', '.join([t.__name__ for t in union_types] )
-            loc_src = context.get_location_source()
-            raise DataclassLoadError(f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'", loc_src, context.error_format)
+            elif is_obj_dict(clazz):
+                key_type, value_type = typing_inspect.get_args(clazz)
 
-        elif is_obj_dict(clazz):
-            key_type, value_type = typing_inspect.get_args(clazz)
+                if not is_obj_dict(type(yaml_obj)):
+                    loc_src = context.get_location_source()
+                    raise DataclassLoadError(f"Got '{type(yaml_obj)}', when expecting 'Dict [{key_type.__name__},{value_type.__name__}]'", loc_src, context.error_format)
 
-            if not is_obj_dict(type(yaml_obj)):
-                loc_src = context.get_location_source()
-                raise DataclassLoadError(f"Got '{type(yaml_obj)}', when expecting 'Dict [{key_type.__name__},{value_type.__name__}]'", loc_src, context.error_format)
+                entries = get_dict_items(yaml_obj)
 
-            entries = get_dict_items(yaml_obj)
+                result = { YamlToScalar(key_type, entry[0], context) : YamlToObject(value_type, entry[1], context) for entry in entries }
+                return result
 
-            result = { YamlToScalar(key_type, entry[0], context) : YamlToObject(value_type, entry[1], context) for entry in entries }
-            return result
-
-        return YamlToScalar(clazz, yaml_obj, context)
+            return YamlToScalar(clazz, yaml_obj, context)
 
 
 class LineLoader(SafeLoader):
@@ -443,7 +440,7 @@ def DictToDataclass(clazz: type, yaml_obj: Any, context: DataclassVisitorContext
         else:
             result = yaml_obj
 
-        if is_source_tracked(clazz):
+        if is_source_tracked(clazz) and hasattr(result, 'set_source_tracker'):
             stack_len = len(context.clazz_stack)
             if stack_len > 0:
                 st = context.clazz_stack[stack_len - 1]
