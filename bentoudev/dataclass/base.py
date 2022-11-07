@@ -82,11 +82,27 @@ class Source:
         else:
             first_line = f'{message}\n'
 
+        src_prefix = '>  '
+        src_margin_top = 1
+        src_margin_bottom = 1
+
+        newline = '\n'
+        newline_pretty = f'\n{src_prefix}'
+
+        # Find length of last line
+        last_line_idx = self.buffer.rfind('\n')
+        last_line_len = (len(self.buffer) - last_line_idx if last_line_idx != -1 else len(self.buffer)) - self.column_number - 2
+
+        src_lines = (self.buffer).replace(newline, newline_pretty)
+
         return (
             f'{first_line}'
-            f'in "{self.file_name}", line {self.line_number}, column {self.column_number}:\n'
-            f'{self.buffer}\n'
-            f'{"":>{self.column_number}}{f"^ (line: {self.line_number})"}'
+            f'in "{self.file_name}", line {self.line_number}, column {self.column_number}:'
+            f'{newline_pretty * src_margin_top}\n'
+            f'{src_prefix}{src_lines}\n'
+            f'{src_prefix}{"":>{self.column_number}}┬{"─"*last_line_len}{newline}'
+            f'{src_prefix}{"":>{self.column_number}}└─(line: {self.line_number})'
+            f'{newline_pretty * src_margin_bottom}'
         )
 
 
@@ -100,7 +116,7 @@ class DataclassLoadError(Exception):
     def from_source(msg:str, src:Source, format:EErrorFormat = EErrorFormat.Pretty):
         return DataclassLoadError(msg, src, format)
 
-    def __init__(self, msg:str, src:Source,format:EErrorFormat = EErrorFormat.Pretty):
+    def __init__(self, msg:str, src:Source, format:EErrorFormat = EErrorFormat.Pretty):
         self.msg = msg
         self.source = src
         self.format = format

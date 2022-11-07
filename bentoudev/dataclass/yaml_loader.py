@@ -299,6 +299,8 @@ def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, f
                     for possible_dict_t in union_types:
                         try:
                             result = YamlToObject(possible_dict_t, yaml_obj, context)
+                        except DataclassLoadError as err:
+                            failed_attempts.append(err.msg)
                         except Exception as err:
                             failed_attempts.append(str(err))
                         else:
