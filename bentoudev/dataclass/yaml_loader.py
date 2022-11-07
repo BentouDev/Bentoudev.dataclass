@@ -477,5 +477,5 @@ def load_yaml_dataclass(clazz:type, label:str, yaml_content:str, *, type_cache:d
         # Re-raise as our custom exception, for consistency
         # TODO: should we track context_mark here also? We already merge multiple errors for dataclass field validation
         raise DataclassLoadError.from_source(err.problem, Source(
-            err.problem_mark.line, err.problem_mark.column, err.problem_mark.get_snippet(), err.problem_mark.name
+            err.problem_mark.line, err.problem_mark.column, err.problem_mark.get_snippet(), label
         ), error_format)
