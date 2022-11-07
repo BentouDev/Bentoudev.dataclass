@@ -44,7 +44,7 @@ class DataclassVisitorContext:
             elif isinstance(top_object, Source):
                 return top_object
 
-        return Source(0, 0, SourceTracker.build_code_snippet(self.get_yaml_line, 0, self.code_snippet_lines), self.filename)
+        return Source(0, 0, ''.join(SourceTracker.build_code_snippet(self.get_yaml_line, 0, self.code_snippet_lines)), self.filename)
 
     # def get_location_msg(self, field_name:str = ""):
     #     stack_len = len(self.clazz_stack)
@@ -195,11 +195,12 @@ class YamlSourceTracker(SourceTracker):
         column: int = len(buff) - len(buff.lstrip(' \t'))
 
         snippet: List[str] = SourceTracker.build_code_snippet(context.get_yaml_line, start_line, context.code_snippet_lines)
+        lines = '\n'.join(snippet)
 
         return Source(
             line_number=start_line,
             column_number=column,
-            buffer='\n'.join(snippet),
+            buffer=lines,
             file_name=context.filename
         )
 
