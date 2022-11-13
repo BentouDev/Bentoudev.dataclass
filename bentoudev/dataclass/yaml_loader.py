@@ -13,7 +13,7 @@ from yaml.nodes import ScalarNode
 from yaml.resolver import BaseResolver
 from yaml.loader import SafeLoader
 
-from bentoudev.dataclass.base import DataclassLoadError, UnhandledType, EErrorFormat, Source, SourceTracker, get_inline_load_type, get_type_name, is_inline_loaded, is_source_tracked, is_clazz_dict, is_clazz_list, track_source
+from bentoudev.dataclass.base import DataclassLoadError, DataclassErrorMessage, UnhandledType, EErrorFormat, Source, SourceTracker, get_inline_load_type, get_type_name, is_inline_loaded, is_source_tracked, is_clazz_dict, is_clazz_list, track_source
 
 
 class DataclassVisitorContext:
@@ -143,7 +143,7 @@ def load_str(value, context: DataclassVisitorContext):
 
     if value_t not in supported_types:
         loc_src = context.get_location_source()
-        raise DataclassLoadError(f"Got '{value_t}' when expecting a string", loc_src, context.error_format)
+        raise DataclassLoadError.from_source(f"Got '{value_t}' when expecting a string", loc_src, context.error_format)
 
     return f'{value}'
 
@@ -234,13 +234,13 @@ def YamlToScalar(clazz: type, yaml_obj: Any, context: DataclassVisitorContext):
         value_t = type(yaml_obj)
         if value_t is not str:
             loc_src = context.get_location_source()
-            raise DataclassLoadError(f"Got '{value_t.__name__}' when expecting enum '{clazz.__name__}'", loc_src, context.error_format)
+            raise DataclassLoadError.from_source(f"Got '{value_t.__name__}' when expecting enum '{clazz.__name__}'", loc_src, context.error_format)
 
         allowed_values = list(map(lambda i: i[0], clazz.__members__.items()))
         if yaml_obj not in allowed_values:
             loc_src = context.get_location_source()
             allowed_values_str = ', '.join(allowed_values)
-            raise DataclassLoadError(f"Got '{yaml_obj}' when expecting enum '{clazz.__name__}' with one of values: {allowed_values_str}", loc_src, context.error_format)
+            raise DataclassLoadError.from_source(f"Got '{yaml_obj}' when expecting enum '{clazz.__name__}' with one of values: {allowed_values_str}", loc_src, context.error_format)
 
         return clazz[yaml_obj]
 
@@ -278,50 +278,59 @@ def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, f
                 else:
                     return [ YamlToObject(subtype, yaml_obj, context) ]
 
-            elif typing_inspect.is_optional_type(clazz):
-                subtype = clazz.__args__[0]
-                return YamlToObject(subtype, yaml_obj, context)
-
             elif typing_inspect.get_origin(clazz) is Union:
                 preffered_type = type(yaml_obj)
                 union_types = typing_inspect.get_args(clazz)
 
+                if len(union_types) == 2 and type(None) in union_types:
+                    subtype = clazz.__args__[0]
+                    return YamlToObject(subtype, yaml_obj, context)
+
                 # Check the type of the value, it may fit just fine
-                if preffered_type in union_types:
+                # if preffered_type in union_types:
+                #     try:
+                #         result = YamlToObject(preffered_type, yaml_obj, context)
+                #     except UnhandledType as err:
+                #         pass
+                #     else:
+                #         return result
+
+                # else:
+                failed_attempts = []
+                for possible_dict_t in union_types:
                     try:
-                        result = YamlToObject(preffered_type, yaml_obj, context)
-                    except UnhandledType as err:
-                        pass
+                        result = YamlToObject(possible_dict_t, yaml_obj, context)
+                    except DataclassLoadError as err:
+                        failed_attempts.append(err)
+                    except Exception as err:
+                        failed_attempts.append(err)
                     else:
                         return result
 
-                else:
-                    failed_attempts = []
-                    for possible_dict_t in union_types:
-                        try:
-                            result = YamlToObject(possible_dict_t, yaml_obj, context)
-                        except DataclassLoadError as err:
-                            failed_attempts.append(err.msg)
-                        except Exception as err:
-                            failed_attempts.append(str(err))
-                        else:
-                            return result
-
-                    attempt_msg = '\n'.join(failed_attempts)
-                    allowed_types = ', '.join([t.__name__ for t in union_types] )
-                    loc_src = context.get_location_source()
-                    raise DataclassLoadError(f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'. Failed to substitute all Union types:\n{attempt_msg}", loc_src, context.error_format)
-
                 allowed_types = ', '.join([t.__name__ for t in union_types] )
                 loc_src = context.get_location_source()
-                raise DataclassLoadError(f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'", loc_src, context.error_format)
+
+                raise DataclassLoadError.from_exception_list(
+                    msg=f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'. Failed to substitute all Union types.",
+                    src=loc_src,
+                    excs=failed_attempts,
+                    format=context.error_format
+                )
+
+                # allowed_types = ', '.join([t.__name__ for t in union_types] )
+                # loc_src = context.get_location_source()
+                # raise DataclassLoadError.from_source(f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'", loc_src, format=context.error_format)
+
+            # elif typing_inspect.is_optional_type(clazz):
+            #     subtype = clazz.__args__[0]
+            #     return YamlToObject(subtype, yaml_obj, context)
 
             elif is_obj_dict(clazz):
                 key_type, value_type = typing_inspect.get_args(clazz)
 
                 if not is_obj_dict(type(yaml_obj)):
                     loc_src = context.get_location_source()
-                    raise DataclassLoadError(f"Got '{type(yaml_obj)}', when expecting 'Dict [{key_type.__name__},{value_type.__name__}]'", loc_src, context.error_format)
+                    raise DataclassLoadError.from_source(f"Got '{type(yaml_obj)}', when expecting 'Dict [{key_type.__name__},{value_type.__name__}]'", loc_src, context.error_format)
 
                 entries = get_dict_items(yaml_obj)
 
@@ -384,22 +393,20 @@ def validate_dataclass_fields(clazz:type, yaml_obj:dict, fields:List[dataclasses
         # Compund error, a lot can happen here
         root_src = context.get_location_source()
 
-        lines = []
+        errors = []
         if has_unknown_fields:
             for entry in unknown_fields:
                 loc_src = context.get_location_source(entry)
-                lines.append(
-                    loc_src.format(DataclassLoadError.LABEL, f"Unknown field '{entry}' for class '{clazz.__name__}'", context.error_format)
-                )
+                errors.append(DataclassErrorMessage(
+                    loc_src, DataclassLoadError.LABEL, f"Unknown field '{entry}' for class '{clazz.__name__}'", context.error_format
+                ))
 
         if has_missing_fields:
-            lines.append(
-                root_src.format(DataclassLoadError.LABEL, f"Missing required field(s) of class '{clazz.__name__}': { ','.join(missing_fields) }", context.error_format)
-            )
+            errors.append(DataclassErrorMessage(
+                root_src, DataclassLoadError.LABEL, f"Missing required field(s) of class '{clazz.__name__}': { ','.join(missing_fields) }", context.error_format
+            ))
 
-        msg = '\n'.join(lines)
-
-        raise DataclassLoadError(msg, root_src, context.error_format)
+        raise DataclassLoadError.from_error_list(root_src, errors, context.error_format)
 
 
 def DictToDataclass(clazz: type, yaml_obj: Any, context: DataclassVisitorContext):

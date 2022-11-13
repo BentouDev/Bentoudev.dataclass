@@ -1,4 +1,4 @@
-from typing import Callable, Any, Optional, List, ClassVar
+from typing import Callable, Any, Optional, List, ClassVar, Union
 from enum import Enum
 import sys, inspect, dataclasses, typing_inspect
 
@@ -62,26 +62,6 @@ class Source:
     file_name: str
 
     def format(self, label:str, message:str, error_format:EErrorFormat):
-        if error_format == EErrorFormat.MSVC:
-            return self.format_msvc(label, message)
-        elif error_format == EErrorFormat.Pretty:
-            return self.format_pretty(label, message)
-        else:
-            return ValueError(f"Unknown EErrorFormat value '{error_format}'")
-
-    def format_msvc(self, label:str, message:str):
-        return (f'{self.file_name}({self.line_number},{self.column_number}) : {label} : {message}\n'
-            f'{self.buffer}\n'
-            f'{"":>{self.column_number}}{f"^ (line: {self.line_number})"}'
-        )
-
-    def format_pretty(self, label:str, message:str):
-        first_line = ''
-        if len(label) != 0:
-            first_line = f'{label}: {message}\n'
-        else:
-            first_line = f'{message}\n'
-
         src_prefix = '>  '
         src_margin_top = 1
         src_margin_bottom = 1
@@ -95,34 +75,153 @@ class Source:
 
         src_lines = (self.buffer).replace(newline, newline_pretty)
 
+        main_line = ''
+        pointer = ''
+
+        if error_format == EErrorFormat.MSVC:
+            main_line = self.format_line_msvc(label, message)
+            pointer = self._format_ptr_msvc(src_prefix, last_line_len, newline)
+        elif error_format == EErrorFormat.Pretty:
+            main_line = self.format_line_pretty(label, message)
+            pointer = self._format_ptr_pretty(src_prefix, last_line_len, newline)
+        else:
+            return ValueError(f"Unknown EErrorFormat value '{error_format}'")
+
+        return (
+            f'{main_line}'
+            f'{newline_pretty * src_margin_top}\n'
+            f'{src_prefix}{src_lines}\n'
+            f'{pointer}'
+            f'{newline_pretty * src_margin_bottom}'
+        )
+
+    def _format_ptr_msvc(self, src_prefix:str, last_line_len:int, newline:str):
+        return (
+            f'{src_prefix}{"":>{self.column_number}}^{newline}'
+            f'{src_prefix}{"":>{self.column_number}}|{newline}'
+            f'{src_prefix}{"":>{self.column_number}}+-(line: {self.line_number})'
+        )
+
+    def _format_ptr_pretty(self, src_prefix:str, last_line_len:int, newline:str):
+        return (
+            f'{src_prefix}{"":>{self.column_number}}┬{"─"*last_line_len}{newline}'
+            f'{src_prefix}{"":>{self.column_number}}└─(line: {self.line_number})'
+        )
+
+    def format_line(self, label:str, message:str, error_format:EErrorFormat):
+        if error_format == EErrorFormat.MSVC:
+            return self.format_line_msvc(label, message)
+        elif error_format == EErrorFormat.Pretty:
+            return self.format_line_pretty(label, message)
+        else:
+            return ValueError(f"Unknown EErrorFormat value '{error_format}'")
+
+    def format_line_msvc(self, label:str, message:str):
+        first_line = ''
+        if len(label) != 0:
+            first_line = f'{label} : {message}'
+        else:
+            first_line = f'{message}'
+
+        return (f'{self.file_name}({self.line_number},{self.column_number}) : {first_line}')
+
+    def format_line_pretty(self, label:str, message:str):
+        first_line = ''
+        if len(label) != 0:
+            first_line = f'{label}: {message}'
+        else:
+            first_line = f'{message}'
+
         return (
             f'{first_line}'
             f'in "{self.file_name}", line {self.line_number}, column {self.column_number}:'
-            f'{newline_pretty * src_margin_top}\n'
-            f'{src_prefix}{src_lines}\n'
-            f'{src_prefix}{"":>{self.column_number}}┬{"─"*last_line_len}{newline}'
-            f'{src_prefix}{"":>{self.column_number}}└─(line: {self.line_number})'
-            f'{newline_pretty * src_margin_bottom}'
         )
+
+
+@dataclasses.dataclass
+class DataclassErrorMessage:
+    source: Source
+    label: str
+    message: str
+    error_format: EErrorFormat
 
 
 class DataclassLoadError(Exception):
     LABEL:ClassVar[str] = 'error'
-    msg:str
+    error_msg: DataclassErrorMessage
+    msg:str = ''
     source:Source = None
     format:EErrorFormat = EErrorFormat.Pretty
 
+    errors: List[Union[Exception,DataclassErrorMessage]] = dataclasses.field(default_factory=list)
+
+    def is_compound(self):
+        return len(self.errors) > 0
+
+    def has_data_errors(self):
+        return any(isinstance(e, DataclassErrorMessage) for e in self.errors)
+
+    @staticmethod
+    def from_exception_list(msg:str, src:Source, excs:List[Exception], format:EErrorFormat = EErrorFormat.Pretty):
+        result = DataclassLoadError()
+        result.errors = []
+
+        def build_errors_recursive(ex):
+            if isinstance(ex, DataclassLoadError):
+                if ex.msg != '':
+                    result.errors.append(DataclassErrorMessage(
+                        source=ex.source,
+                        label=ex.LABEL,
+                        message=ex.msg,
+                        error_format=format
+                    ))
+                if ex.is_compound():
+                    for sub_ex in ex.errors:
+                        build_errors_recursive(sub_ex)
+            else:
+                result.errors.append(ex)
+
+        for ex in excs:
+            build_errors_recursive(ex)
+
+        result.msg = msg
+        result.source = src
+        result.format = format
+        return result
+
+    @staticmethod
+    def from_error_list(src:Source, errs:List[DataclassErrorMessage], format:EErrorFormat = EErrorFormat.Pretty):
+        result = DataclassLoadError()
+        result.errors = errs
+        result.source = src
+        result.format = format
+        return result
+
     @staticmethod
     def from_source(msg:str, src:Source, format:EErrorFormat = EErrorFormat.Pretty):
-        return DataclassLoadError(msg, src, format)
+        result = DataclassLoadError()
+        result.errors = []
+        result.msg = msg
+        result.source = src
+        result.format = format
+        return result
 
-    def __init__(self, msg:str, src:Source, format:EErrorFormat = EErrorFormat.Pretty):
-        self.msg = msg
-        self.source = src
-        self.format = format
+    def __init__(self):
+        pass
 
     def __str__(self):
-        return self.source.format('error', self.msg, self.format)
+        if self.is_compound():
+            buffer = [ f"{self.LABEL} : {self.msg}" ] if self.msg != '' and self.msg != None else []
+            for err in self.errors:
+                if isinstance(err, DataclassErrorMessage):
+                    buffer.append(err.source.format(err.label, err.message, self.format))
+                else:
+                    buffer.append(str(err))
+
+            return '\n'.join(buffer)
+
+        else:
+            return self.source.format(self.LABEL, self.msg, self.format)
 
 
 class UnhandledType(Exception):

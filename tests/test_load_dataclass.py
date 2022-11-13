@@ -113,8 +113,8 @@ class clazz_person:
 
 
 @dataclass
-class clazz_union_str_int:
-    data: Union[str, int]
+class clazz_union_int_str:
+    data: Union[int, str]
 
 
 @dataclass
@@ -187,8 +187,8 @@ def load_dataclass_simple(clazz:type, data):
         (inline_int_only, InputData(666, clazz_inline_loader_int(f_int=666))),
         (inline_str_only, InputData('othertext', clazz_inline_loader_str(f_string='othertext'))),
 
-        (clazz_union_str_int, InputData('text', 'text')),
-        (clazz_union_str_int, InputData(666, 666)),\
+        (clazz_union_int_str, InputData('text', 'text')),
+        (clazz_union_int_str, InputData(666, 666)),\
         (clazz_union_str_obj, InputData('foo', 'foo')),
         (clazz_union_str_obj, InputData('\n   name: foo\n   age: 666', clazz_person(name='foo', age=666))),
 
@@ -242,10 +242,10 @@ def test_load_simple(clazz:type, data_input):
         (inline_int_only, 'othertext'),
         (inline_str_only, '\n- foo'),
 
-        (clazz_union_str_int, []),
-        (clazz_union_str_int, {}),
-        (clazz_union_str_int, '\n- foo'),
-        (clazz_union_str_int, '\n   foo: bar'),
+        (clazz_union_int_str, []),
+        (clazz_union_int_str, {}),
+        (clazz_union_int_str, '\n- foo'),
+        (clazz_union_int_str, '\n   foo: bar'),
 
         (clazz_dict_int_obj, False),
         (clazz_dict_int_obj, []),
