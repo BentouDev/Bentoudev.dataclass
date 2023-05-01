@@ -403,7 +403,7 @@ def validate_dataclass_fields(clazz:type, yaml_obj:dict, fields:List[dataclasses
 
         if has_missing_fields:
             errors.append(DataclassErrorMessage(
-                root_src, DataclassLoadError.LABEL, f"Missing required field(s) of class '{clazz.__name__}': { ','.join(missing_fields) }", context.error_format
+                root_src, DataclassLoadError.LABEL, f"Missing required field(s) of class '{clazz.__name__}': { ', '.join(missing_fields) }", context.error_format
             ))
 
         raise DataclassLoadError.from_error_list(root_src, errors, context.error_format)

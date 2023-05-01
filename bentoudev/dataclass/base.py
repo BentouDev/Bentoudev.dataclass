@@ -133,7 +133,7 @@ class Source:
             first_line = f'{message}'
 
         return (
-            f'{first_line}'
+            f'{first_line}\n'
             f'in "{self.file_name}", line {self.line_number}, column {self.column_number}:'
         )
 
