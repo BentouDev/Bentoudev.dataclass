@@ -153,7 +153,7 @@ class DataclassLoadError(Exception):
     source:Source = None
     format:EErrorFormat = EErrorFormat.Pretty
 
-    errors: List[Union[Exception,DataclassErrorMessage]] = dataclasses.field(default_factory=list)
+    errors: List[Union[Exception,DataclassErrorMessage]] = []
 
     def is_compound(self):
         return len(self.errors) > 0
@@ -210,16 +210,26 @@ class DataclassLoadError(Exception):
         pass
 
     def __str__(self):
+        def print_err(err):
+            if isinstance(err, DataclassErrorMessage):
+                if hasattr(err, 'errors'):
+                    mid_buff = []
+                    for sub_err in err.errors:
+                        mid_buff.append(print_err(sub_err))
+                    return '\n'.join(mid_buff)
+                elif err.source is not None:
+                    return err.source.format(err.label, err.message, self.format)
+                else:
+                    return f"{err.label}: {err.message}"
+            else:
+                return str(err)
+
         if self.is_compound():
             buffer = [ f"{self.LABEL} : {self.msg}" ] if self.msg != '' and self.msg != None else []
+            buffer.append('')
             for err in self.errors:
-                if isinstance(err, DataclassErrorMessage):
-                    buffer.append(err.source.format(err.label, err.message, self.format))
-                else:
-                    buffer.append(str(err))
-
+                buffer.append(print_err(err))
             return '\n'.join(buffer)
-
         else:
             return self.source.format(self.LABEL, self.msg, self.format)
 

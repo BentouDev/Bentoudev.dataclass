@@ -185,6 +185,16 @@ def is_obj_tracked(obj):
     return (hasattr(obj, '__yaml_location__') and hasattr(obj, '__yaml_field_location__'))
 
 
+def clear_tracked_obj(obj):
+    if is_obj_tracked(obj):
+        if is_obj_dict(type(obj)):
+            obj.pop('__yaml_field_location__', None)
+            obj.pop('__yaml_location__', None)
+        else:
+            delattr(obj, '__yaml_field_location__')
+            delattr(obj, '__yaml_location__')
+    return obj
+
 
 class YamlSourceTracker(SourceTracker):
 
@@ -230,6 +240,9 @@ class YamlSourceTracker(SourceTracker):
 
 
 def YamlToScalar(clazz: type, yaml_obj: Any, context: DataclassVisitorContext):
+    if clazz == Any:
+        return clear_tracked_obj(yaml_obj)
+
     if inspect.isclass(clazz) and issubclass(clazz, enum.Enum):
         value_t = type(yaml_obj)
         if value_t is not str:
@@ -286,16 +299,6 @@ def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, f
                     subtype = clazz.__args__[0]
                     return YamlToObject(subtype, yaml_obj, context)
 
-                # Check the type of the value, it may fit just fine
-                # if preffered_type in union_types:
-                #     try:
-                #         result = YamlToObject(preffered_type, yaml_obj, context)
-                #     except UnhandledType as err:
-                #         pass
-                #     else:
-                #         return result
-
-                # else:
                 failed_attempts = []
                 for possible_dict_t in union_types:
                     try:
@@ -307,7 +310,7 @@ def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, f
                     else:
                         return result
 
-                allowed_types = ', '.join([t.__name__ for t in union_types] )
+                allowed_types = ', '.join([str(t) for t in union_types] )
                 loc_src = context.get_location_source()
 
                 raise DataclassLoadError.from_exception_list(
@@ -316,14 +319,6 @@ def YamlToObject(clazz: type, yaml_obj: Any, context: DataclassVisitorContext, f
                     excs=failed_attempts,
                     format=context.error_format
                 )
-
-                # allowed_types = ', '.join([t.__name__ for t in union_types] )
-                # loc_src = context.get_location_source()
-                # raise DataclassLoadError.from_source(f"Got '{type(yaml_obj)}' when expecting 'Union [{allowed_types}]'", loc_src, format=context.error_format)
-
-            # elif typing_inspect.is_optional_type(clazz):
-            #     subtype = clazz.__args__[0]
-            #     return YamlToObject(subtype, yaml_obj, context)
 
             elif is_obj_dict(clazz):
                 key_type, value_type = typing_inspect.get_args(clazz)
@@ -413,6 +408,22 @@ def DictToDataclass(clazz: type, yaml_obj: Any, context: DataclassVisitorContext
     if not dataclasses.is_dataclass(clazz):
         raise ValueError(f'Class \'{clazz}\' passed to YAMLToDataclass must be a dataclass!')
 
+    def handle_source_tracked(result):
+        if is_source_tracked(clazz) and hasattr(result, 'set_source_tracker'):
+            stack_len = len(context.clazz_stack)
+            if stack_len > 0:
+                st = context.clazz_stack[stack_len - 1]
+                result.set_source_tracker(YamlSourceTracker.from_inline(st, context))
+            else:
+                raise ValueError(f"Unable to set source tracker for {clazz}")
+
+    if is_inline_loaded(clazz):
+        loader = get_inline_load_type(clazz)
+        loaded_val = YamlToObject(loader.inline_type, yaml_obj, context)
+        result = loader.loader(loaded_val)
+        handle_source_tracked(result)
+        return result
+
     if is_obj_dict(type(yaml_obj)):
 
         if context.always_track_source:
@@ -443,21 +454,8 @@ def DictToDataclass(clazz: type, yaml_obj: Any, context: DataclassVisitorContext
         return result
 
     else:
-        if is_inline_loaded(clazz):
-            loader = get_inline_load_type(clazz)
-            loaded_val = YamlToScalar(loader.inline_type, yaml_obj, context)
-            result = loader.loader(loaded_val)
-        else:
-            result = yaml_obj
-
-        if is_source_tracked(clazz) and hasattr(result, 'set_source_tracker'):
-            stack_len = len(context.clazz_stack)
-            if stack_len > 0:
-                st = context.clazz_stack[stack_len - 1]
-                result.set_source_tracker(YamlSourceTracker.from_inline(st, context))
-            else:
-                raise ValueError(f"Unable to set source tracker for {clazz}")
-
+        result = yaml_obj
+        handle_source_tracked(result)
         return result
 
 

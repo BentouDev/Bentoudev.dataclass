@@ -132,6 +132,11 @@ class clazz_dict_int_obj:
     data: Dict[int, clazz_person]
 
 
+@dataclass
+class clazz_any_only:
+    data: Any
+
+
 def get_dataclass_field(clazz:type, name:str):
     for f in fields(clazz):
         if f.name == name:
@@ -195,6 +200,10 @@ def load_dataclass_simple(clazz:type, data):
         (clazz_dict_str_int, InputData('\n   key: 666', {'key':666})),
         (clazz_dict_str_int, InputData('\n   foo: 777', {'foo':777})),
         (clazz_dict_int_obj, InputData('\n   1:\n      name: foo\n      age: 666', {1:clazz_person(name='foo', age=666)})),
+
+        (clazz_any_only, InputData('text', 'text')),
+        (clazz_any_only, InputData('\n key: value', { 'key' : 'value' })),
+        (clazz_any_only, InputData('\n array:\n  - first\n  - second', { 'array' : [ 'first', 'second' ] }))
     ]
 )
 def test_load_simple(clazz:type, data_input):
@@ -369,6 +378,40 @@ def test_load_complex_class():
 
     # Assert
     assert result == root
+
+
+@base.inline_loader(source_type=Union[Dict[str, 'tests.test_load_dataclass.Compound'], List['tests.test_load_dataclass.Compound'], str], field_name='data')
+@dataclass
+class Compound():
+    data: Union[Dict[str, 'tests.test_load_dataclass.Compound'], List['tests.test_load_dataclass.Compound'], str]
+
+@dataclass
+class compound_root:
+    targets: Compound
+
+
+@pytest.mark.parametrize(
+    'data_input',
+    [
+        'targets: some_name',
+
+        'targets:\n'
+        '- foo\n'
+        '- bar\n',
+
+        'targets:\n'
+        '  apps:\n'
+        '   - some_app\n'
+        '  libs:\n'
+        '    static:\n'
+        '       - foo\n'
+        '    dynamic:\n'
+        '       - bar\n'
+    ]
+)
+def test_compound_dictionary(data_input):
+    result : compound_root = load_dataclass(compound_root, data_input, type_cache=yaml.default_type_loaders(), extra_types=[Compound])
+    assert result is not None
 
 
 def test_track_yaml_source():
