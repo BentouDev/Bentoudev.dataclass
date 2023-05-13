@@ -380,10 +380,10 @@ def test_load_complex_class():
     assert result == root
 
 
-@base.inline_loader(source_type=Union[Dict[str, 'tests.test_load_dataclass.Compound'], List['tests.test_load_dataclass.Compound'], str], field_name='data')
+@base.inline_loader(source_type=Union[Dict[str, 'tests.test_load_dataclass.Compound'], List['tests.test_load_dataclass.Compound'], str], field_name='data') # noqa: F821
 @dataclass
 class Compound():
-    data: Union[Dict[str, 'tests.test_load_dataclass.Compound'], List['tests.test_load_dataclass.Compound'], str]
+    data: Union[Dict[str, 'tests.test_load_dataclass.Compound'], List['tests.test_load_dataclass.Compound'], str] # noqa: F821
 
 @dataclass
 class compound_root:
