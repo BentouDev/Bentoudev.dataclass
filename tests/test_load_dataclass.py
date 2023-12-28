@@ -457,3 +457,15 @@ def test_track_yaml_source():
 
     check_field(result.nested, 'f_str_array', 8, 3, 'test.yml')
     check_field(result.nested.f_str_array, 'data', 9, 5, 'test.yml')
+
+
+@pytest.mark.skip(reason="Test fails - this is a bug.")
+def test_raise_when_yaml_subobject_is_none():
+    yaml_str = (
+        'f_nested:\n'
+        'f_nested_array:\n'
+    )
+
+    # f_nested is missing its fields, such input should raise error
+    with pytest.raises(base.DataclassLoadError):
+        result = yaml.load_yaml_dataclass(root_class, 'test.yml', yaml_str)
