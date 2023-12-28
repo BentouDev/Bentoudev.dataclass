@@ -459,7 +459,6 @@ def test_track_yaml_source():
     check_field(result.nested.f_str_array, 'data', 9, 5, 'test.yml')
 
 
-@pytest.mark.skip(reason="Test fails - this is a bug.")
 def test_raise_when_yaml_subobject_is_none():
     yaml_str = (
         'f_nested:\n'
