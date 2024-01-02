@@ -454,6 +454,9 @@ def DictToDataclass(clazz: type, yaml_obj: Any, context: DataclassVisitorContext
         return result
 
     else:
+        clazz_fields = list(dataclasses.fields(clazz))
+        validate_dataclass_fields(clazz, {}, clazz_fields, context)
+
         result = yaml_obj
         handle_source_tracked(result)
         return result
