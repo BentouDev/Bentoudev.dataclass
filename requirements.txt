@@ -12,7 +12,7 @@ mypy-extensions==0.4.3
     # via typing-inspect
 platformdirs==2.5.2
     # via bentoudev.dataclass (pyproject.toml)
-pyyaml==6.0
+pyyaml==6.0.1
     # via bentoudev.dataclass (pyproject.toml)
 six==1.16.0
     # via fs
