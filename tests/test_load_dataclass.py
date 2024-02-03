@@ -1,6 +1,6 @@
 import pytest
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, field
 from typing import List, Any, Optional, Union, Dict
 from enum import Enum
 import bentoudev.dataclass.yaml_loader as yaml
@@ -468,3 +468,22 @@ def test_raise_when_yaml_subobject_is_none():
     # f_nested is missing its fields, such input should raise error
     with pytest.raises(base.DataclassLoadError):
         result = yaml.load_yaml_dataclass(root_class, 'test.yml', yaml_str)
+
+@dataclass
+class Dependencies:
+    interface: Optional[List[str]] = field(default_factory=list) # noqa: F821
+    public: Optional[List[str]] = field(default_factory=list)    # noqa: F821
+    private: Optional[List[str]] = field(default_factory=list)   # noqa: F821
+
+@dataclass
+class TargetData:
+    dependencies: Optional[Dependencies] = field(default=None)
+
+def test_dependencies_as_list():
+    yaml = (
+        'dependencies:\n'
+        '   - first\n'
+    )
+
+    with pytest.raises(base.DataclassLoadError):
+        result : TargetData = load_dataclass(TargetData, yaml)

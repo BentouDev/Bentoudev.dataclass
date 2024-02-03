@@ -454,12 +454,8 @@ def DictToDataclass(clazz: type, yaml_obj: Any, context: DataclassVisitorContext
         return result
 
     else:
-        clazz_fields = list(dataclasses.fields(clazz))
-        validate_dataclass_fields(clazz, {}, clazz_fields, context)
-
-        result = yaml_obj
-        handle_source_tracked(result)
-        return result
+        loc_src = context.get_location_source()
+        raise DataclassLoadError.from_source(f"Got '{type(yaml_obj)}' when expecting dataclass '{clazz.__name__}'.", loc_src, context.error_format)
 
 
 def load_yaml_dataclass(clazz:type, label:str, yaml_content:str, *, type_cache:dict=default_type_loaders(), ext_types:list=[],
