@@ -13,7 +13,7 @@ from yaml.nodes import ScalarNode
 from yaml.resolver import BaseResolver
 from yaml.loader import SafeLoader
 
-from bentoudev.dataclass.base import DataclassLoadError, DataclassErrorMessage, UnhandledType, EErrorFormat, Source, SourceTracker, get_inline_load_type, get_type_name, is_inline_loaded, is_source_tracked, is_clazz_dict, is_clazz_list, track_source
+from bentoudev.dataclass.base import DataclassLoadError, DataclassErrorMessage, UnhandledType, EErrorFormat, Source, SourceTracker, get_inline_load_type, get_type_name, is_enum, is_inline_loaded, is_source_tracked, is_clazz_dict, is_clazz_list, track_source
 
 
 class DataclassVisitorContext:
@@ -243,7 +243,7 @@ def YamlToScalar(clazz: type, yaml_obj: Any, context: DataclassVisitorContext):
     if clazz == Any:
         return clear_tracked_obj(yaml_obj)
 
-    if inspect.isclass(clazz) and issubclass(clazz, enum.Enum):
+    if is_enum(clazz):
         value_t = type(yaml_obj)
         if value_t is not str:
             loc_src = context.get_location_source()

@@ -334,6 +334,11 @@ def track_source(clazz):
 
 ##########################################################################
 
+def is_enum(clazz:type):
+    if inspect.isclass(clazz) and issubclass(clazz, Enum):
+        return True
+    return False
+
 
 def is_clazz_list(clazz):
     if clazz is list:
