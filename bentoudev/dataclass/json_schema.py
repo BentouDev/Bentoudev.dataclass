@@ -1,7 +1,7 @@
 import dataclasses
 from bentoudev.dataclass.base import get_type_name, is_clazz_list, is_enum
 import typing_inspect
-from typing import List, Dict, Tuple, TypeVar, Union
+from typing import List, Dict, Tuple, TypeVar, Union, Any
 from abc import ABC, abstractmethod
 
 
@@ -51,6 +51,26 @@ class Handler(ABC):
         return True
 
 
+@dataclasses.dataclass
+class CheckDefault:
+    # Python doesnt allow comparing to dataclasses.MISSING
+    field:str
+
+    @staticmethod
+    def check(field:dataclasses.Field):
+        fs = list(dataclasses.fields(CheckDefault))
+        obj = { f.name : f for f in fs }
+        return field.default != obj['field'].default
+
+
+def field_has_valid_default(field:dataclasses.Field):
+    if field.default is None:
+        return False
+    if field.default == '':
+        return False
+    return CheckDefault.check(field)
+
+
 # intermediate data
 class BuilderContext:
     dataclazzes : Dict[type, DataclassJsonSchema]
@@ -78,7 +98,8 @@ class BuilderContext:
         schema = DataclassJsonSchema()
         schema['type'] = 'object'
         schema['properties'] = {}
-        schema['unevaluatedProperties'] = False
+        schema['additionalProperties'] = False
+        schema['title'] = clazz.__name__
         self.dataclazzes[clazz] = schema
         return schema
 
@@ -102,16 +123,14 @@ class BuilderContext:
                 required.append(field.name)
 
             field_schema = self.handle_type(field.type)
+
+            if field_has_valid_default(field):
+                field_schema['default'] = field.default
+
             props[field.name] = field_schema
 
         if len(required) != 0:
             schema['required'] = required
-
-            # if dataclasses.is_dataclass(field.type):
-            #     field_schema = ctx.find_dataclass_schema(field.type)
-            #     if field_schema is None:
-            #         field_schema = ctx.create_dataclass_schema(field.type)
-            #         build_dataclass_schema(ctx, clazz, field_schema)
 
         return ref
 
@@ -135,7 +154,7 @@ class BuilderContext:
         if simple_h is not None:
             return simple_h()
 
-        raise ValueError(f"Unable to handle type {clazz.__name__}!")
+        raise ValueError(f"Unable to handle type {clazz}!")
 
     def anyOf(self, typez:List[type]) -> dict:
         return {
@@ -194,6 +213,14 @@ class ListHandler(Handler):
     def handle(self, ctx: BuilderContext, clazz: type) -> Dict:
         subtype = clazz.__args__[0]
         return ctx.array(subtype)
+
+
+class AnyHandler(Handler):
+    def condition(self, clazz: type) -> bool:
+        return clazz is Any
+
+    def handle(self, ctx: BuilderContext, clazz: type) -> Dict:
+        return {}
 
 
 class InlineListHandler(Handler):
@@ -267,7 +294,9 @@ def build_json_schema(clazz:type, *, ext_types:list=[], ext_handlers:List[Handle
         UnionHandler(),
         ListHandler(),
         EnumHandler(),
+        AnyHandler(),
     ]
+
     ctx = BuilderContext()
     ctx.handlers = ext_handlers + handler_registry
     ctx.ext_types = ext_types
