@@ -170,14 +170,21 @@ class BuilderContext:
         }
 
 
-class EnumHandler(Handler):
+class ListHandler(Handler):
     def condition(self, clazz: type) -> bool:
-        return is_enum(clazz)
+        return is_clazz_list(clazz)
 
     def handle(self, ctx: BuilderContext, clazz: type) -> Dict:
-        return {
-            "enum": [ name for name, _ in clazz.__members__.items() ]
-        }
+        subtype = clazz.__args__[0]
+        return ctx.array(subtype)
+
+
+class AnyHandler(Handler):
+    def condition(self, clazz: type) -> bool:
+        return clazz is Any
+
+    def handle(self, ctx: BuilderContext, clazz: type) -> Dict:
+        return {}
 
 
 class UnionHandler(Handler):
@@ -188,6 +195,18 @@ class UnionHandler(Handler):
         return ctx.anyOf(typing_inspect.get_args(clazz, evaluate=True))
 
 
+# Allows enums to be set by their values names.
+class EnumHandler(Handler):
+    def condition(self, clazz: type) -> bool:
+        return is_enum(clazz)
+
+    def handle(self, ctx: BuilderContext, clazz: type) -> Dict:
+        return {
+            "enum": [ name for name, _ in clazz.__members__.items() ]
+        }
+
+
+# Ommits nulls from schema, so that optional fields are either not present at all or have value.
 class NoNullHandler(Handler):
     def condition(self, clazz: type) -> bool:
         return typing_inspect.is_optional_type(clazz)
@@ -206,23 +225,7 @@ class NoNullHandler(Handler):
             return ctx.handle_type(self._build_union(*subtypes))
 
 
-class ListHandler(Handler):
-    def condition(self, clazz: type) -> bool:
-        return is_clazz_list(clazz)
-
-    def handle(self, ctx: BuilderContext, clazz: type) -> Dict:
-        subtype = clazz.__args__[0]
-        return ctx.array(subtype)
-
-
-class AnyHandler(Handler):
-    def condition(self, clazz: type) -> bool:
-        return clazz is Any
-
-    def handle(self, ctx: BuilderContext, clazz: type) -> Dict:
-        return {}
-
-
+# Allows arrays to be set with single inlined values as well.
 class InlineListHandler(Handler):
     def can_recurse(self) -> bool:
         return False
@@ -286,7 +289,7 @@ class InlineListHandler(Handler):
         raise ValueError(f"Unexpected type '{clazz.__name__}' in InlineListHandler!")
 
 
-# Order of handlers matters - handlers are evaluated in order, first satisfied condition wins
+# Order of handlers matters! Handlers are evaluated in order, first satisfied condition wins
 def build_json_schema(clazz:type, *, ext_types:list=[], ext_handlers:List[Handler]=[]):
     handler_registry = [
         NoNullHandler(),
@@ -302,13 +305,14 @@ def build_json_schema(clazz:type, *, ext_types:list=[], ext_handlers:List[Handle
     ctx.ext_types = ext_types
     main_schema = ctx.handle_type(clazz)
 
-    #main_schema = ctx.dataclazzes[clazz]
-    #del ctx.dataclazzes[clazz]
-
     # Fill references
     defs = {}
-    for clazz, schema in ctx.dataclazzes.items():
-        defs[clazz.__name__] = schema
+    for c, schema in ctx.dataclazzes.items():
+        defs[c.__name__] = schema
     main_schema['$defs'] = defs
+
+    # Default schema fields
+    main_schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+    main_schema["title"] = clazz.__name__
 
     return main_schema
