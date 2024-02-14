@@ -22,8 +22,8 @@ def test_handle_inline_str():
         UnionHandler(),
         ListHandler()
     ])
-    # TODO: assert
-    print(result)
+
+    assert result == {"anyOf": [{"type": "string"}, {"items": {"type": "string"}, "type": "array"}]}
 
 class EMyEnum(Enum):
     NONE = 1
@@ -39,8 +39,8 @@ def test_handle_inline_enum():
         ListHandler(),
         EnumHandler(),
     ])
-    # TODO: assert
-    print(result)
+
+    assert result == {"anyOf": [{"enum": ["NONE", "FIRST", "SECOND"]}, {"items": {"enum": ["NONE", "FIRST", "SECOND"]}, "type": "array"}]}
 
 
 @dataclass
@@ -50,7 +50,7 @@ class SimpleDataclass:
 
 def test_handle_simple_dataclass():
     result = _process_handlers(SimpleDataclass, [])
-    assert result == {'type': 'object', 'properties': {'number': {'type': 'integer'}, 'name': {'type': 'string'}}, 'unevaluatedProperties': False}
+    assert result == {"$ref": "#/$defs/SimpleDataclass"}
 
 @dataclass
 class SelfRefDataclass:
@@ -59,7 +59,7 @@ class SelfRefDataclass:
 
 def test_handle_self_ref_dataclass():
     result = build_json_schema(SelfRefDataclass, ext_types=[SelfRefDataclass])
-    print(json.dumps(result))
+    assert result == {"$ref": "#/$defs/SelfRefDataclass", "$defs": {"SelfRefDataclass": {"type": "object", "properties": {"number": {"type": "integer"}, "collect": {"items": {"$ref": "#/$defs/SelfRefDataclass"}, "type": "array"}}, "additionalProperties": False, "title": "SelfRefDataclass", "required": ["number", "collect"]}}, "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "SelfRefDataclass"}
 
 @dataclass
 class EntryClass:
@@ -79,4 +79,4 @@ class OwnerClass:
 
 def test_complex_class():
     result = build_json_schema(OwnerClass)
-    print(json.dumps(result))
+    assert result == {"$ref": "#/$defs/OwnerClass", "$defs": {"OwnerClass": {"type": "object", "properties": {"config": {"$ref": "#/$defs/ConfigClass"}, "entries": {"items": {"$ref": "#/$defs/EntryClass"}, "type": "array"}}, "additionalProperties": False, "title": "OwnerClass", "required": ["config", "entries"]}, "ConfigClass": {"type": "object", "properties": {"entry": {"$ref": "#/$defs/EntryClass"}, "surname": {"type": "string"}, "kinds": {"anyOf": [{"enum": ["NONE", "FIRST", "SECOND"]}, {"items": {"enum": ["NONE", "FIRST", "SECOND"]}, "type": "array"}]}}, "additionalProperties": False, "title": "ConfigClass", "required": ["entry", "surname", "kinds"]}, "EntryClass": {"type": "object", "properties": {"name": {"type": "string"}, "number": {"type": "integer"}}, "additionalProperties": False, "title": "EntryClass", "required": ["name", "number"]}}, "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "OwnerClass"}
