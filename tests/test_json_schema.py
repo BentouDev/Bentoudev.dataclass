@@ -55,7 +55,7 @@ def test_handle_simple_dataclass():
 @dataclass
 class SelfRefDataclass:
     number: int
-    collect: List['tests.test_json_schema.SelfRefDataclass']
+    collect: List['tests.test_json_schema.SelfRefDataclass'] # noqa: F821
 
 def test_handle_self_ref_dataclass():
     result = build_json_schema(SelfRefDataclass, ext_types=[SelfRefDataclass])
