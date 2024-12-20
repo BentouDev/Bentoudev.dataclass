@@ -24,9 +24,9 @@ dependencies = [
     "typing-inspect",
     "typing_extensions",
     "PyYAML",
-    'tomli; python_version < "3.11"',
+    'tomli',
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 
 [project.optional-dependencies]
 dev = ["pyinstaller>=5.0", "bumpver", "pip-tools", "pytest", "build", "twine"]
