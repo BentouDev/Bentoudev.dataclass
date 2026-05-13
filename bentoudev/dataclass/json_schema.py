@@ -125,7 +125,7 @@ class BuilderContext:
             field_schema = self.handle_type(field.type)
 
             if field_has_valid_default(field):
-                field_schema['default'] = field.default
+                field_schema['default'] = field.default if not is_enum(type(field.default)) else field.default.name
 
             props[field.name] = field_schema
 
